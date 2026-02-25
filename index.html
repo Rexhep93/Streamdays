@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="StreamDay">
+<title>StreamDay</title>
+<style>
+  :root {
+    --bg:#000;--surface:#0f0f0f;--s2:#1c1c1e;--s3:#2c2c2e;
+    --border:rgba(255,255,255,.08);--text:#fff;
+    --t2:rgba(255,255,255,.6);--t3:rgba(255,255,255,.3);
+    --r:14px;
+    --font:-apple-system,"SF Pro Display",BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100dvh}
+
+  .sb{height:env(safe-area-inset-top,44px);background:rgba(0,0,0,.9);position:fixed;top:0;left:0;right:0;z-index:100}
+
+  .nav{position:fixed;top:env(safe-area-inset-top,44px);left:0;right:0;z-index:99;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(0,0,0,.85);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-bottom:.5px solid var(--border)}
+  .logo{font-size:19px;font-weight:700;letter-spacing:-.6px}
+  .logo span{color:var(--t2);font-weight:300}
+  .pills{display:flex;gap:6px}
+  .pill{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;border:.5px solid var(--border);background:var(--s2);color:var(--t2);cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+  .pill.active{background:#fff;color:#000;border-color:#fff}
+
+  .svc-bar{position:sticky;top:calc(env(safe-area-inset-top,44px) + 54px);z-index:98;display:flex;gap:8px;padding:10px 20px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:rgba(0,0,0,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:.5px solid var(--border)}
+  .svc-bar::-webkit-scrollbar{display:none}
+  .sc{flex:0 0 auto;display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:.5px solid var(--border);background:var(--s2);color:var(--t2);cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;transition:all .2s}
+  .sc.active{color:#fff;border-color:rgba(255,255,255,.3);background:var(--s3)}
+  .sc img{width:14px;height:14px;border-radius:3px;object-fit:cover}
+  .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+
+  .main{padding-top:calc(env(safe-area-inset-top,44px) + 54px + 52px + 10px);padding-bottom:calc(env(safe-area-inset-bottom,20px) + 30px)}
+
+  .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:14px;padding:40px 20px;text-align:center}
+  .spinner{width:34px;height:34px;border:2.5px solid var(--s3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text{font-size:14px;color:var(--t3)}
+  .loading-sub{font-size:12px;color:var(--t3);margin-top:-6px;line-height:1.5}
+
+  .day-section{margin-bottom:28px;animation:fadeUp .4s ease both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  .day-header{padding:0 20px 4px;display:flex;align-items:center;gap:8px}
+  .day-name{font-size:22px;font-weight:700;letter-spacing:-.5px}
+  .today-chip{font-size:11px;font-weight:600;color:#000;background:#fff;border-radius:6px;padding:2px 8px}
+  .day-sub{padding:0 20px 14px;font-size:13px;color:var(--t3)}
+  .cat-row{padding:2px 20px 10px;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3)}
+  .divider{height:.5px;background:var(--border);margin:0 20px 24px}
+
+  .scroll-track{display:flex;gap:12px;padding:0 20px 6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .scroll-track::-webkit-scrollbar{display:none}
+
+  .card{flex:0 0 auto;width:124px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .18s}
+  .card:active{transform:scale(.95)}
+  .card-poster{width:124px;height:184px;border-radius:var(--r);overflow:hidden;position:relative;background:var(--s2);margin-bottom:8px;box-shadow:0 4px 16px rgba(0,0,0,.55)}
+  .card-poster img.poster{width:100%;height:100%;object-fit:cover;display:block}
+  .fallback{width:100%;height:100%;display:flex;align-items:flex-end;padding:10px;background:linear-gradient(145deg,#1a1a2e,#16213e)}
+  .fallback span{font-size:11px;font-weight:700;color:rgba(255,255,255,.9);line-height:1.3}
+  .badge{position:absolute;top:7px;right:7px;border-radius:6px;padding:3px 7px;font-size:9px;font-weight:800;letter-spacing:.2px;text-transform:uppercase;border:.5px solid rgba(255,255,255,.15);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}
+  .new-label{position:absolute;top:7px;left:7px;background:#FF375F;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;text-transform:uppercase}
+  .card-title{font-size:12px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-meta{font-size:11px;color:var(--t3);margin-top:2px}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);opacity:0;pointer-events:none;transition:opacity .28s;display:flex;align-items:flex-end}
+  .overlay.open{opacity:1;pointer-events:all}
+  .sheet{width:100%;background:var(--surface);border-radius:22px 22px 0 0;padding:10px 0 calc(env(safe-area-inset-bottom,20px) + 20px);transform:translateY(100%);transition:transform .38s cubic-bezier(.32,.72,0,1);max-height:85dvh;overflow-y:auto}
+  .overlay.open .sheet{transform:translateY(0)}
+  .handle{width:36px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;margin:0 auto 18px}
+  .si{padding:0 20px;display:flex;gap:16px}
+  .sp{width:104px;height:152px;border-radius:12px;overflow:hidden;flex:0 0 auto;box-shadow:0 8px 28px rgba(0,0,0,.65);background:var(--s2)}
+  .sp img{width:100%;height:100%;object-fit:cover;display:block}
+  .sinf{flex:1;min-width:0}
+  .ssvc{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
+  .stitle{font-size:18px;font-weight:700;letter-spacing:-.3px;line-height:1.2;margin-bottom:4px}
+  .smeta{font-size:12px;color:var(--t3);margin-bottom:10px}
+  .stags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .stag{font-size:11px;font-weight:500;padding:3px 9px;border-radius:7px;background:var(--s3);color:var(--t2)}
+  .srating{font-size:12px;color:var(--t3);margin-bottom:4px}
+  .sdesc{padding:16px 20px 0;font-size:13px;color:var(--t2);line-height:1.65}
+  .watch-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 40px);margin:18px 20px 0;height:50px;border-radius:14px;background:#fff;color:#000;font-size:15px;font-weight:600;border:none;cursor:pointer;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:opacity .2s}
+  .watch-btn:active{opacity:.72}
+
+  .error-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px;padding:40px 20px;text-align:center}
+  .error-icon{font-size:40px}
+  .error-title{font-size:17px;font-weight:600}
+  .error-msg{font-size:13px;color:var(--t3);max-width:300px;line-height:1.6}
+  .retry-btn{margin-top:8px;padding:10px 24px;border-radius:12px;background:#fff;color:#000;font-size:14px;font-weight:600;border:none;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="sb"></div>
+<nav class="nav">
+  <div class="logo">Stream<span>Day</span></div>
+  <div class="pills">
+    <div class="pill active" data-f="all"   onclick="setType(this)">All</div>
+    <div class="pill"        data-f="movie" onclick="setType(this)">Movies</div>
+    <div class="pill"        data-f="tv"    onclick="setType(this)">Series</div>
+  </div>
+</nav>
+
+<div class="svc-bar" id="svcBar">
+  <div class="sc active" data-id="all" onclick="setSvc(this)">All Services</div>
+</div>
+
+<main class="main" id="main">
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text">Finding streaming releases…</div>
+    <div class="loading-sub">Loading Netflix, Disney+, Prime,<br>Max, Apple TV+ and more for 🇳🇱</div>
+  </div>
+</main>
+
+<div class="overlay" id="overlay" onclick="closeBg(event)">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="si"    id="si"></div>
+    <div class="sdesc" id="sd"></div>
+    <a class="watch-btn" id="wb" href="#" target="_blank">▶&nbsp;&nbsp;Watch Now</a>
+  </div>
+</div>
+
+<script>
+const API_KEY = 'eLLuTN9mYhAAWBNl1P3XOGgRKFA1toAVWhOiYX3m';
+const WM      = 'https://api.watchmode.com/v1';
+const IMG_W   = 'https://image.tmdb.org/t/p/w300';
+
+// Fallback colour map for well-known services
+// (used when logo isn't available or to colour the badge)
+const SVC_COLORS = {
+  'netflix':      { color:'#E50914', text:'#fff' },
+  'prime':        { color:'#00A8E0', text:'#fff' },
+  'amazon':       { color:'#00A8E0', text:'#fff' },
+  'disney':       { color:'#113CCF', text:'#fff' },
+  'apple':        { color:'#555',    text:'#fff' },
+  'max':          { color:'#5822B4', text:'#fff' },
+  'hbo':          { color:'#5822B4', text:'#fff' },
+  'hulu':         { color:'#1CE783', text:'#000' },
+  'paramount':    { color:'#0064FF', text:'#fff' },
+  'videoland':    { color:'#E00000', text:'#fff' },
+  'peacock':      { color:'#000',    text:'#fff' },
+  'crunchyroll':  { color:'#F47521', text:'#fff' },
+  'default':      { color:'#444',    text:'#fff' },
+};
+
+function getSvcStyle(name='') {
+  const key = Object.keys(SVC_COLORS).find(k => name.toLowerCase().includes(k));
+  return SVC_COLORS[key] || SVC_COLORS.default;
+}
+
+// ── STATE ──────────────────────────────────────────────────────────
+let sources    = [];   // NL subscription sources from Watchmode
+let allItems   = [];   // flat list of enriched release objects
+let typeFilter = 'all';
+let svcFilter  = 'all';
+const detailCache = {};
+
+// ── HELPERS ────────────────────────────────────────────────────────
+function dateStr(offset=0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0,10).replace(/-/g,''); // YYYYMMDD
+}
+function isoDate(wmDate) {
+  // Watchmode dates come as YYYYMMDD → YYYY-MM-DD
+  if (!wmDate) return '';
+  const s = String(wmDate);
+  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+}
+function dayName(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { weekday:'long' });
+}
+function fullDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+}
+function todayISO() {
+  return new Date().toISOString().slice(0,10);
+}
+
+async function wm(path, params={}) {
+  const url = new URL(WM + path);
+  url.searchParams.set('apiKey', API_KEY);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url.toString());
+  if (!r.ok) throw new Error(`Watchmode ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ── STEP 1: GET NL SOURCES ─────────────────────────────────────────
+async function fetchSources() {
+  const data = await wm('/sources/', { regions: 'NL' });
+  // Keep only subscription (flatrate) services
+  sources = (Array.isArray(data) ? data : [])
+    .filter(s => s.type === 'sub' && s.regions && s.regions.includes('NL'))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  return sources;
+}
+
+// ── STEP 2: FETCH RELEASES PER DAY ─────────────────────────────────
+// Watchmode /releases/ endpoint: returns new streaming additions
+// We fetch today + 7 days ahead, and 7 days back (to catch recent additions)
+async function fetchReleases() {
+  const sourceIds = sources.map(s => s.id).join(',');
+  if (!sourceIds) throw new Error('No NL streaming sources found');
+
+  const fromDate = dateStr(-14); // 14 days back
+  const toDate   = dateStr(14);  // 14 days ahead
+
+  // Fetch movies and TV series separately for full coverage
+  const [moviesRes, tvRes] = await Promise.all([
+    wm('/releases/', {
+      region: 'NL',
+      source_ids: sourceIds,
+      release_date_start: fromDate,
+      release_date_end: toDate,
+      type: 'movie',
+      limit: 250,
+    }),
+    wm('/releases/', {
+      region: 'NL',
+      source_ids: sourceIds,
+      release_date_start: fromDate,
+      release_date_end: toDate,
+      type: 'tv_series,miniseries,documentary,special',
+      limit: 250,
+    }),
+  ]);
+
+  function parseItems(res, type) {
+    const list = res?.releases || res || [];
+    return (Array.isArray(list) ? list : []).map(item => {
+      const src = sources.find(s => s.id === item.source_id) || {};
+      const style = getSvcStyle(src.name || '');
+      return {
+        ...item,
+        _type:  type,
+        _date:  isoDate(item.release_date),
+        _src:   src,
+        _style: style,
+      };
+    });
+  }
+
+  // Deduplicate by (id, source_id) pair
+  const movies = parseItems(moviesRes, 'movie');
+  const tv     = parseItems(tvRes, 'tv');
+  const all    = [...movies, ...tv];
+  const seen   = new Set();
+  allItems = all.filter(item => {
+    const key = `${item.id}-${item.source_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// ── GROUP BY DATE ──────────────────────────────────────────────────
+function grouped() {
+  const map = {};
+  const filtered = allItems.filter(item => {
+    if (typeFilter === 'movie' && item._type !== 'movie') return false;
+    if (typeFilter === 'tv'    && item._type === 'movie') return false;
+    if (svcFilter !== 'all' && String(item.source_id) !== String(svcFilter)) return false;
+    return !!item._date;
+  });
+  filtered.forEach(item => {
+    if (!map[item._date]) map[item._date] = { movies:[], tv:[] };
+    if (item._type === 'movie') map[item._date].movies.push(item);
+    else map[item._date].tv.push(item);
+  });
+  return map;
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────
+function renderAll() {
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  const g = grouped();
+  const today = todayISO();
+
+  // Show today − 3 days through today + 10 days
+  const days = Array.from({length:14}, (_,i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i - 3);
+    return d.toISOString().slice(0,10);
+  });
+
+  let count = 0;
+
+  days.forEach((iso, i) => {
+    const data = g[iso];
+    if (!data) return;
+    const movies = data.movies || [];
+    const tv     = data.tv     || [];
+    if (!movies.length && !tv.length) return;
+    count++;
+
+    const sec = document.createElement('section');
+    sec.className = 'day-section';
+    sec.style.animationDelay = `${count * 0.04}s`;
+
+    const chip = iso === today ? '<span class="today-chip">Today</span>' : '';
+    let html = `<div class="day-header"><div class="day-name">${dayName(iso)}</div>${chip}</div>
+                <div class="day-sub">${fullDate(iso)}</div>`;
+
+    if (movies.length) {
+      html += `<div class="cat-row">🎬 &nbsp;Movies</div>
+               <div class="scroll-track">${movies.map(m => card(m)).join('')}</div>`;
+    }
+    if (tv.length) {
+      html += `<div class="cat-row">📺 &nbsp;TV Series</div>
+               <div class="scroll-track">${tv.map(t => card(t)).join('')}</div>`;
+    }
+
+    html += '<div class="divider"></div>';
+    sec.innerHTML = html;
+    main.appendChild(sec);
+  });
+
+  if (!count) {
+    main.innerHTML = `<div class="loading-screen"><div class="loading-text">No releases found for this filter.</div></div>`;
+  }
+}
+
+function card(item) {
+  const title = (item.title || '').replace(/'/g,"&#39;").replace(/"/g,'&quot;');
+  const style = item._style;
+  const svcName = (item._src.name || 'Streaming').replace(/Netherlands/i,'').trim();
+
+  const imgEl = item.img
+    ? `<img class="poster" src="${item.img}" alt="${title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    : '';
+  const fallbackDisplay = item.img ? 'none' : 'flex';
+
+  const rating = item.user_rating ? `⭐ ${(item.user_rating/10).toFixed(1)}` : (item._type === 'movie' ? 'Movie' : 'Series');
+
+  return `<div class="card" onclick="openModal(${item.id || 0},'${item._type}','${(item.watchmode_id||item.id||0)}')">
+    <div class="card-poster">
+      ${imgEl}
+      <div class="fallback" style="display:${fallbackDisplay}"><span>${title}</span></div>
+      <div class="new-label">New</div>
+      <div class="badge" style="background:${style.color}dd;color:${style.text}">${svcName}</div>
+    </div>
+    <div class="card-title">${title}</div>
+    <div class="card-meta">${rating}</div>
+  </div>`;
+}
+
+// ── SERVICE BAR ────────────────────────────────────────────────────
+function buildSvcBar() {
+  // Only show services that actually have items in the result set
+  const foundIds = new Set(allItems.map(i => String(i.source_id)));
+  const bar = document.getElementById('svcBar');
+  bar.innerHTML = `<div class="sc active" data-id="all" onclick="setSvc(this)">All Services</div>`;
+
+  sources
+    .filter(s => foundIds.has(String(s.id)))
+    .forEach(s => {
+      const style = getSvcStyle(s.name || '');
+      const name  = (s.name || '').replace(/Netherlands/i,'').trim();
+      const logo  = s.logo_100px
+        ? `<img src="${s.logo_100px}" alt="">`
+        : `<div class="dot" style="background:${style.color}"></div>`;
+      bar.innerHTML += `<div class="sc" data-id="${s.id}" onclick="setSvc(this)">${logo}${name}</div>`;
+    });
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────
+async function openModal(id, type, wmId) {
+  const overlay = document.getElementById('overlay');
+  const si = document.getElementById('si');
+  const sd = document.getElementById('sd');
+  const wb = document.getElementById('wb');
+
+  // Find item from allItems first (instant)
+  const item = allItems.find(i => (i.id===id||i.watchmode_id===id) && i._type===type)
+            || allItems.find(i => String(i.watchmode_id||i.id)===String(wmId));
+
+  const title  = item?.title || '—';
+  const poster = item?.img || '';
+  const svcName = (item?._src?.name||'Streaming').replace(/Netherlands/i,'').trim();
+  const style  = item?._style || getSvcStyle('');
+
+  si.innerHTML = `
+    <div class="sp">${poster ? `<img src="${poster}" alt="">` : `<div style="width:100%;height:100%;background:var(--s3)"></div>`}</div>
+    <div class="sinf">
+      <div class="ssvc" style="color:${style.color}">${svcName}</div>
+      <div class="stitle">${title}</div>
+      <div class="smeta">${type==='movie'?'🎬 Movie':'📺 TV Series'}</div>
+      <div style="color:var(--t3);font-size:12px">Loading details…</div>
+    </div>`;
+  sd.textContent = '';
+  wb.style.display = 'none';
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Fetch full details from Watchmode
+  const key = String(wmId || id);
+  if (!detailCache[key] && key !== '0') {
+    try {
+      const d = await wm(`/title/${key}/details/`);
+      detailCache[key] = d;
+    } catch(e) {
+      // Use what we have from the list item
+      detailCache[key] = null;
+    }
+  }
+
+  const d = detailCache[key];
+  const fullTitle  = d?.title  || title;
+  const overview   = d?.plot_overview || item?.overview || 'No description available.';
+  const year       = d?.year || (item?._date||'').slice(0,4);
+  const runtime    = d?.runtime_minutes ? `${d.runtime_minutes} min` : '';
+  const rating     = d?.user_rating ? `${(d.user_rating/10).toFixed(1)} / 10` : '';
+  const genres     = (d?.genres||[]).slice(0,3).map(g=>`<span class="stag">${g.name||g}</span>`).join('');
+  const posterUrl  = d?.poster || item?.img || '';
+
+  // Find a "Watch Now" link for NL
+  let watchLink = null;
+  if (d?.sources) {
+    const nlSrc = d.sources.find(s => s.region==='NL' && s.type==='sub');
+    const usSrc = d.sources.find(s => s.region==='US' && s.type==='sub');
+    watchLink = nlSrc?.web_url || usSrc?.web_url || null;
+  }
+
+  si.innerHTML = `
+    <div class="sp">${posterUrl ? `<img src="${posterUrl}" alt="">` : `<div class="fallback" style="height:152px"><span>${fullTitle}</span></div>`}</div>
+    <div class="sinf">
+      <div class="ssvc" style="color:${style.color}">${svcName}</div>
+      <div class="stitle">${fullTitle}</div>
+      <div class="smeta">${type==='movie'?'🎬 Movie':'📺 TV Series'}${year?' · '+year:''}${runtime?' · '+runtime:''}</div>
+      <div class="stags">${genres}</div>
+      ${rating?`<div class="srating"><span style="color:#FFD60A">★</span> ${rating}</div>`:''}
+    </div>`;
+  sd.textContent = overview;
+
+  if (watchLink) { wb.href = watchLink; wb.style.display='flex'; }
+}
+
+function closeBg(e) {
+  if (e.target === document.getElementById('overlay')) {
+    document.getElementById('overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+// ── FILTERS ────────────────────────────────────────────────────────
+function setType(el) {
+  typeFilter = el.dataset.f;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+function setSvc(el) {
+  svcFilter = el.dataset.id;
+  document.querySelectorAll('.sc').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+// ── INIT ───────────────────────────────────────────────────────────
+async function init() {
+  try {
+    // Step 1: get NL streaming sources
+    document.querySelector('.loading-text').textContent = 'Fetching streaming services…';
+    await fetchSources();
+
+    if (!sources.length) throw new Error('No streaming sources found for the Netherlands.');
+
+    // Step 2: fetch all releases
+    document.querySelector('.loading-text').textContent = `Loading releases from ${sources.length} services…`;
+    await fetchReleases();
+
+    // Step 3: build UI
+    buildSvcBar();
+    renderAll();
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('main').innerHTML = `
+      <div class="error-screen">
+        <div class="error-icon">⚠️</div>
+        <div class="error-title">Could not load releases</div>
+        <div class="error-msg">${e.message || 'Something went wrong. Make sure you have an internet connection.'}</div>
+        <button class="retry-btn" onclick="location.reload()">Try Again</button>
+      </div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
